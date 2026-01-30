@@ -1,0 +1,210 @@
+-- 🌌 ASTRAL ORBIT MODE
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- Script variables
+local running = false
+local conn = nil
+local character = nil
+local hrp = nil
+
+-- Wait for character
+LocalPlayer.CharacterAdded:Connect(function(char)
+    character = char
+    hrp = char:WaitForChild("HumanoidRootPart", 5)
+end)
+
+-- Initialize
+if LocalPlayer.Character then
+    character = LocalPlayer.Character
+    hrp = character:WaitForChild("HumanoidRootPart", 5)
+end
+
+-- Orbit settings
+local ORBIT_POS = Vector3.new(0, 1000, 0)  -- Orbit position in sky
+local HEIGHT_OFFSET = 5
+local Camera = workspace.CurrentCamera
+
+-- Functions
+local function getClosestEnemy()
+    if not character or not hrp then return nil end
+    
+    local closest = nil
+    local closestDist = math.huge
+    local myPos = hrp.Position
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character then
+            local targetHrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if targetHrp then
+                local dist = (myPos - targetHrp.Position).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closest = player
+                end
+            end
+        end
+    end
+    return closest
+end
+
+local function teleportToOrbit()
+    if not character or not hrp then return end
+    hrp.CFrame = CFrame.new(ORBIT_POS)
+end
+
+local function setCameraOrbit(enemy)
+    if not enemy or not enemy.Character then return end
+    
+    local ehrp = enemy.Character:FindFirstChild("HumanoidRootPart")
+    if not ehrp then return end
+    
+    local behind = -ehrp.CFrame.LookVector * 10
+    local targetPos = ehrp.Position + behind + Vector3.new(0, HEIGHT_OFFSET, 0)
+    
+    if Camera then
+        Camera.CFrame = CFrame.new(ORBIT_POS, targetPos)
+    end
+end
+
+-- 🌟 SIMPLE GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AstralOrbitGUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 220, 0, 180)
+Frame.Position = UDim2.new(0, 250, 0, 20)
+Frame.BackgroundColor3 = Color3.fromRGB(20, 20, 35)  -- Dark blue/space color
+Frame.Parent = ScreenGui
+
+-- 🌠 Title
+local Title = Instance.new("TextLabel")
+Title.Text = "🌌 ASTRAL ORBIT"
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.BackgroundColor3 = Color3.fromRGB(40, 40, 80)  -- Space blue
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 18
+Title.Parent = Frame
+
+-- 🚀 ON/OFF Toggle Button
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Name = "ToggleBtn"
+ToggleBtn.Text = "🌑 OFF"
+ToggleBtn.Size = UDim2.new(0.9, 0, 0, 40)
+ToggleBtn.Position = UDim2.new(0.05, 0, 0, 35)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 80)  -- Purple when off
+ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.TextSize = 16
+ToggleBtn.Parent = Frame
+
+-- 🛰️ Test Button
+local TestBtn = Instance.new("TextButton")
+TestBtn.Text = "🛰️ TEST ORBIT"
+TestBtn.Size = UDim2.new(0.9, 0, 0, 40)
+TestBtn.Position = UDim2.new(0.05, 0, 0, 80)
+TestBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 100)  -- Blue
+TestBtn.TextColor3 = Color3.new(1, 1, 1)
+TestBtn.Font = Enum.Font.Gotham
+TestBtn.TextSize = 14
+TestBtn.Parent = Frame
+
+-- 📡 Status Label
+local Status = Instance.new("TextLabel")
+Status.Name = "StatusLabel"
+Status.Text = "📡 Status: Ready"
+Status.Size = UDim2.new(1, 0, 0, 30)
+Status.Position = UDim2.new(0, 0, 0, 125)
+Status.BackgroundColor3 = Color3.fromRGB(30, 30, 60)
+Status.TextColor3 = Color3.new(1, 1, 1)
+Status.Font = Enum.Font.Gotham
+Status.TextSize = 13
+Status.Parent = Frame
+
+-- ✨ Close Button
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Text = "✨"
+CloseBtn.Size = UDim2.new(0, 30, 0, 30)
+CloseBtn.Position = UDim2.new(1, -30, 0, 0)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(120, 50, 150)  -- Purple
+CloseBtn.TextColor3 = Color3.new(1, 1, 1)
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 16
+CloseBtn.Parent = Frame
+
+-- Function to show notification
+local function showNotification(title, text)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = title,
+        Text = text,
+        Duration = 3,
+        Icon = "rbxassetid://0"
+    })
+end
+
+-- Update status label
+local function updateStatus(text)
+    Status.Text = "📡 Status: " .. text
+end
+
+-- 🚀 Toggle Button Click
+ToggleBtn.MouseButton1Click:Connect(function()
+    running = not running
+    
+    if running then
+        -- Turn ON
+        ToggleBtn.Text = "🌕 ON"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(30, 150, 200)  -- Cyan when on
+        updateStatus("Orbit Active")
+        showNotification("🌌 Astral Orbit ON", "Entering orbital position...")
+        
+        -- Start orbit mode
+        conn = RunService.Stepped:Connect(function()
+            teleportToOrbit()
+            local enemy = getClosestEnemy()
+            if enemy then
+                setCameraOrbit(enemy)
+            end
+        end)
+        
+    else
+        -- Turn OFF
+        ToggleBtn.Text = "🌑 OFF"
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 80)  -- Purple when off
+        updateStatus("Standby")
+        showNotification("🌑 Astral Orbit OFF", "Returning to normal...")
+        
+        -- Stop orbit mode
+        if conn then
+            conn:Disconnect()
+            conn = nil
+        end
+    end
+end)
+
+-- 🛰️ Test Button Click
+TestBtn.MouseButton1Click:Connect(function()
+    teleportToOrbit()
+    updateStatus("Test Orbit")
+    showNotification("🛰️ Test Orbit", "Teleported to orbital position")
+end)
+
+-- ✨ Close Button Click
+CloseBtn.MouseButton1Click:Connect(function()
+    ScreenGui:Destroy()
+    if conn then
+        conn:Disconnect()
+        conn = nil
+    end
+    showNotification("✨ Closed", "Astral Orbit GUI closed")
+end)
+
+-- Initial notification
+showNotification("🌌 Astral Orbit", "Orbital system ready!")
+updateStatus("System Ready")
+
+print("🌌 Astral Orbit GUI Loaded!")
