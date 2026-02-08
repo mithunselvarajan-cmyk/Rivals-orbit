@@ -91,6 +91,211 @@ OrbitSection:AddToggle("OrbitToggle", {
     end
 })
 
+local NewOrbitSection = Main:AddSection("Orbit (New)")
+
+NewOrbitSection:AddToggle("NewOrbitToggle", {
+    Title = "Underground Orbit",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local Players = game:GetService("Players")
+            local RunService = game:GetService("RunService")
+            local LocalPlayer = Players.LocalPlayer
+            local Camera = workspace.CurrentCamera
+
+            local ORBIT_RADIUS = 12
+            local ORBIT_HEIGHT = 6
+            local ORBIT_SPEED = 0.7
+            local UNDERGROUND_DEPTH = -50
+            local orbitAngle = 0
+
+            local character = LocalPlayer.Character
+            local hrp = character and character:FindFirstChild("HumanoidRootPart")
+            local humanoid = character and character:FindFirstChild("Humanoid")
+
+            local currentTarget = nil
+            local currentEnemyHrp = nil
+
+            local function setupNewCharacter(newChar)
+                character = newChar
+                hrp = newChar:WaitForChild("HumanoidRootPart")
+                humanoid = newChar:WaitForChild("Humanoid")
+                
+                task.wait(0.05)
+                
+                if hrp and humanoid then
+                    for _, part in pairs(character:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.Transparency = 0.8
+                            part.CanCollide = false
+                        end
+                    end
+                end
+            end
+
+            if character then
+                setupNewCharacter(character)
+            end
+
+            LocalPlayer.CharacterAdded:Connect(function(newChar)
+                setupNewCharacter(newChar)
+            end)
+
+            local function isTargetAlive(enemyHrp)
+                if not enemyHrp or not enemyHrp.Parent then
+                    return false
+                end
+                
+                local enemyHumanoid = enemyHrp.Parent:FindFirstChild("Humanoid")
+                if not enemyHumanoid then
+                    return false
+                end
+                
+                return enemyHumanoid.Health > 0
+            end
+
+            local function getBestTarget()
+                if not hrp then return nil, nil end
+                
+                if currentEnemyHrp and isTargetAlive(currentEnemyHrp) then
+                    return currentEnemyHrp.Position, currentEnemyHrp
+                end
+                
+                local closest = nil
+                local closestHrp = nil
+                local shortestDist = math.huge
+                
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        local enemyHrp = player.Character:FindFirstChild("HumanoidRootPart")
+                        local enemyHumanoid = player.Character:FindFirstChild("Humanoid")
+                        
+                        if enemyHrp and enemyHumanoid and enemyHumanoid.Health > 0 then
+                            local dist = (hrp.Position - enemyHrp.Position).Magnitude
+                            if dist < shortestDist and dist < 100 then
+                                shortestDist = dist
+                                closest = enemyHrp.Position
+                                closestHrp = enemyHrp
+                            end
+                        end
+                    end
+                end
+                
+                currentTarget = closest
+                currentEnemyHrp = closestHrp
+                
+                return closest, closestHrp
+            end
+
+            local function cameraOrbitCharacterDeepUnderground(dt)
+                if not character or not hrp or not hrp.Parent then 
+                    character = LocalPlayer.Character
+                    if character then
+                        hrp = character:FindFirstChild("HumanoidRootPart")
+                        humanoid = character:FindFirstChild("Humanoid")
+                    end
+                    return 
+                end
+                
+                if not humanoid or humanoid.Health <= 0 then
+                    return
+                end
+                
+                local enemyPos, enemyHrp = getBestTarget()
+                if enemyPos and enemyHrp and hrp then
+                    local deepUndergroundPos = Vector3.new(
+                        enemyPos.X,
+                        enemyPos.Y + UNDERGROUND_DEPTH,
+                        enemyPos.Z
+                    )
+                    
+                    hrp.CFrame = CFrame.new(deepUndergroundPos)
+                    humanoid.AutoRotate = false
+                    
+                    for _, part in pairs(character:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.Transparency = 0.8
+                            part.CanCollide = false
+                        end
+                    end
+                    
+                    orbitAngle = orbitAngle + (ORBIT_SPEED * dt)
+                    
+                    local x = math.cos(orbitAngle) * ORBIT_RADIUS
+                    local z = math.sin(orbitAngle) * ORBIT_RADIUS
+                    local cameraOrbitPos = enemyPos + Vector3.new(x, ORBIT_HEIGHT, z)
+                    
+                    Camera.CFrame = CFrame.new(cameraOrbitPos, enemyPos)
+                    
+                elseif hrp then
+                    local safeUndergroundPos = Vector3.new(
+                        hrp.Position.X,
+                        -50,
+                        hrp.Position.Z
+                    )
+                    hrp.CFrame = CFrame.new(safeUndergroundPos)
+                    
+                    currentTarget = nil
+                    currentEnemyHrp = nil
+                end
+            end
+
+            local connection = RunService.RenderStepped:Connect(function(dt)
+                pcall(function()
+                    cameraOrbitCharacterDeepUnderground(dt)
+                end)
+            end)
+
+            getgenv().NewOrbitConnection = connection
+
+            Fluent:Notify({
+                Title = "Underground Orbit",
+                Content = "✅ DEEP UNDERGROUND ORBIT ENABLED",
+                Duration = 3
+            })
+            
+            spawn(function()
+                local lastCharacter = character
+                while getgenv().NewOrbitConnection do
+                    wait(0.1)
+                    if LocalPlayer.Character ~= lastCharacter then
+                        print("Character respawn detected")
+                        lastCharacter = LocalPlayer.Character
+                    end
+                end
+            end)
+        else
+            if getgenv().NewOrbitConnection then
+                getgenv().NewOrbitConnection:Disconnect()
+                getgenv().NewOrbitConnection = nil
+                
+                local Players = game:GetService("Players")
+                local LocalPlayer = Players.LocalPlayer
+                local character = LocalPlayer.Character
+                
+                if character then
+                    if character:FindFirstChild("Humanoid") then
+                        character.Humanoid.AutoRotate = true
+                    end
+                    
+                    for _, part in pairs(character:GetChildren()) do
+                        if part:IsA("BasePart") then
+                            part.Transparency = 0
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+            
+            Fluent:Notify({
+                Title = "Underground Orbit", 
+                Content = "❌ Disabled - character returned to surface",
+                Duration = 2
+            })
+        end
+    end
+})
+
 local StretchSection = Main:AddSection("Screen Stretch")
 
 StretchSection:AddToggle("StretchToggle", {
