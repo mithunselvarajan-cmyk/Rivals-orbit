@@ -1,0 +1,259 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "Focus Configs",
+    SubTitle = "by lunar3301 & shadow",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(500, 400),
+    Acrylic = true,
+    Theme = "Dark"
+})
+
+local Main = Window:AddTab({Title = "MAIN", Icon = "home"})
+local Misc = Window:AddTab({Title = "MISC/FFA", Icon = "settings"})
+
+local OrbitSection = Main:AddSection("Orbit Aura")
+
+OrbitSection:AddToggle("OrbitToggle", {
+    Title = "Orbit Aura",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local Players = game:GetService("Players")
+            local RunService = game:GetService("RunService")
+            local LocalPlayer = Players.LocalPlayer
+            local Camera = workspace.CurrentCamera
+            
+            local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+            local hrp = character:WaitForChild("HumanoidRootPart")
+            
+            local ORBIT_RADIUS = 8
+            local ORBIT_HEIGHT = 4
+            local ORBIT_SPEED = 0.5
+            local orbitAngle = 0
+            
+            LocalPlayer.CharacterAdded:Connect(function(newChar)
+                character = newChar
+                hrp = newChar:WaitForChild("HumanoidRootPart")
+            end)
+            
+            local function getClosestEnemy()
+                local closest = nil
+                local shortestDist = math.huge
+                
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= LocalPlayer and player.Character then
+                        local enemyHrp = player.Character:FindFirstChild("HumanoidRootPart")
+                        local humanoid = player.Character:FindFirstChild("Humanoid")
+                        
+                        if enemyHrp and humanoid and humanoid.Health > 0 then
+                            local dist = (hrp.Position - enemyHrp.Position).Magnitude
+                            if dist < shortestDist then
+                                shortestDist = dist
+                                closest = enemyHrp
+                            end
+                        end
+                    end
+                end
+                return closest
+            end
+            
+            local orbitConnection = RunService.RenderStepped:Connect(function(dt)
+                local enemyHrp = getClosestEnemy()
+                if enemyHrp then
+                    orbitAngle = orbitAngle + (ORBIT_SPEED * dt)
+                    local x = math.cos(orbitAngle) * ORBIT_RADIUS
+                    local z = math.sin(orbitAngle) * ORBIT_RADIUS
+                    local orbitPos = enemyHrp.Position + Vector3.new(x, ORBIT_HEIGHT, z)
+                    Camera.CFrame = CFrame.new(orbitPos, enemyHrp.Position)
+                end
+            end)
+            
+            getgenv().OrbitConnection = orbitConnection
+            
+            Fluent:Notify({
+                Title = "Orbit Aura",
+                Content = "✅ Orbit Focus enabled",
+                Duration = 3
+            })
+        else
+            if getgenv().OrbitConnection then
+                getgenv().OrbitConnection:Disconnect()
+                getgenv().OrbitConnection = nil
+            end
+            
+            Fluent:Notify({
+                Title = "Orbit Aura", 
+                Content = "❌ Orbit Focus disabled",
+                Duration = 2
+            })
+        end
+    end
+})
+
+local StretchSection = Main:AddSection("Screen Stretch")
+
+StretchSection:AddToggle("StretchToggle", {
+    Title = "Screen Stretch",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local Camera = workspace.CurrentCamera 
+            
+            local connection = game:GetService("RunService").RenderStepped:Connect(function() 
+                Camera.CFrame = Camera.CFrame * CFrame.new(0, 0, 0, 1, 0, 0, 0, 0.37, 0, 0, 0, 1) 
+            end)
+            
+            getgenv().ScreenStretchConnection = connection
+            
+            Fluent:Notify({
+                Title = "Screen Stretch",
+                Content = "✅ Better side by side with kiciahook",
+                Duration = 3
+            })
+        else
+            if getgenv().ScreenStretchConnection then
+                getgenv().ScreenStretchConnection:Disconnect()
+                getgenv().ScreenStretchConnection = nil
+            end
+            
+            Fluent:Notify({
+                Title = "Screen Stretch",
+                Content = "❌ Screen Stretch disabled",
+                Duration = 2
+            })
+        end
+    end
+})
+
+local FFASection = Misc:AddSection("FFA Features")
+
+FFASection:AddToggle("AmmoToggle", {
+    Title = "Auto Ammo/Health",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local Players = game:GetService("Players")
+            local player = Players.LocalPlayer
+            
+            getgenv().AmmoLoop = true
+            
+            spawn(function()
+                while getgenv().AmmoLoop do
+                    local character = player.Character
+                    if character then
+                        local hrp = character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            for _, obj in pairs(workspace:GetChildren()) do
+                                if obj.Name == "_drop" and obj:IsA("BasePart") then
+                                    if obj:FindFirstChild("Health") or obj:FindFirstChild("Ammo") then
+                                        pcall(function()
+                                            firetouchinterest(hrp, obj, 0)
+                                            firetouchinterest(hrp, obj, 1)
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    wait(0.1)
+                end
+            end)
+            
+            Fluent:Notify({
+                Title = "Auto Ammo",
+                Content = "✅ Enabled",
+                Duration = 2
+            })
+        else
+            getgenv().AmmoLoop = false
+            
+            Fluent:Notify({
+                Title = "Auto Ammo",
+                Content = "❌ Disabled",
+                Duration = 2
+            })
+        end
+    end
+})
+
+FFASection:AddToggle("RespawnToggle", {
+    Title = "Auto Respawn",
+    Default = false,
+    Callback = function(value)
+        if value then
+            local Players = game:GetService("Players")
+            local ReplicatedStorage = game:GetService("ReplicatedStorage")
+            local player = Players.LocalPlayer
+            
+            local respawnRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Duels"):WaitForChild("RespawnNow")
+            
+            local function setupRespawn(char)
+                local humanoid = char:WaitForChild("Humanoid")
+                humanoid.Died:Connect(function()
+                    if value then
+                        task.wait(0.1)
+                        pcall(function()
+                            respawnRemote:FireServer()
+                        end)
+                    end
+                end)
+            end
+            
+            player.CharacterAdded:Connect(setupRespawn)
+            if player.Character then
+                setupRespawn(player.Character)
+            end
+            
+            Fluent:Notify({
+                Title = "Auto Respawn",
+                Content = "✅ Enabled",
+                Duration = 2
+            })
+        else
+            Fluent:Notify({
+                Title = "Auto Respawn",
+                Content = "❌ Disabled",
+                Duration = 2
+            })
+        end
+    end
+})
+
+FFASection:AddToggle("BegToggle", {
+    Title = "Auto Beg",
+    Default = false,
+    Callback = function(value)
+        if value then
+            getgenv().BegLoop = true
+            
+            spawn(function()
+                while getgenv().BegLoop do
+                    local args = {"beg"}
+                    game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("Misc"):WaitForChild("DialogAction"):FireServer(unpack(args))
+                    wait(0.5)
+                end
+            end)
+            
+            Fluent:Notify({
+                Title = "Auto Beg",
+                Content = "✅ Enabled",
+                Duration = 2
+            })
+        else
+            getgenv().BegLoop = false
+            
+            Fluent:Notify({
+                Title = "Auto Beg",
+                Content = "❌ Disabled",
+                Duration = 2
+            })
+        end
+    end
+})
+
+Fluent:Notify({
+    Title = "Focus Configs",
+    Content = "GUI Loaded!",
+    Duration = 5
+})
