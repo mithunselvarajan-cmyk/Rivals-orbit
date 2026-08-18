@@ -1,0 +1,124 @@
+-- Auto Loop Teleporter + Rejoin Every 10 Mins
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
+
+local POINT_1 = Vector3.new(122.9, 1.8, -96.8)
+local POINT_2 = Vector3.new(125.2, 1.3, -2180.3 - 10)
+
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local hrp = character:FindFirstChild("HumanoidRootPart")
+local humanoid = character:FindFirstChild("Humanoid")
+
+-- ============================================
+-- TELEPORT FUNCTION
+-- ============================================
+local function teleportTo(pos)
+    if not hrp or not hrp.Parent then
+        character = LocalPlayer.Character
+        if character then
+            hrp = character:FindFirstChild("HumanoidRootPart")
+            humanoid = character:FindFirstChild("Humanoid")
+        end
+        return
+    end
+
+    hrp.CFrame = CFrame.new(pos)
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    hrp.RotVelocity = Vector3.new(0, 0, 0)
+
+    if humanoid then
+        humanoid.PlatformStand = true
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        task.wait(0.05)
+        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    end
+
+    local camera = workspace.CurrentCamera
+    if camera then
+        camera.CameraSubject = hrp
+        camera.CameraType = Enum.CameraType.Custom
+    end
+
+    print("📍 Teleported to: " .. tostring(pos))
+end
+
+-- ============================================
+-- LOOP FOREVER (Point 1 → Point 2 → 7s delay → repeat)
+-- ============================================
+spawn(function()
+    while true do
+        teleportTo(POINT_1)
+        wait(0.2)
+        teleportTo(POINT_2)
+        print("⏳ Waiting 7 seconds...")
+        wait(7)
+    end
+end)
+
+-- ============================================
+-- REJOIN EVERY 10 MINUTES
+-- ============================================
+local PlaceId = game.PlaceId
+spawn(function()
+    while true do
+        wait(600) -- 10 minutes
+        print("🔄 Rejoining after 10 minutes...")
+        wait(0.5)
+        TeleportService:Teleport(PlaceId)
+    end
+end)
+
+-- ============================================
+-- RESPAWN HANDLE
+-- ============================================
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    task.wait(0.3)
+    character = newChar
+    hrp = newChar:FindFirstChild("HumanoidRootPart")
+    humanoid = newChar:FindFirstChild("Humanoid")
+    print("🔄 Respawn detected - continuing loop...")
+end)
+
+-- ============================================
+-- GUI (Shows status + rejoin timer)
+-- ============================================
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "LoopTeleporter"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 230, 0, 65)
+Frame.Position = UDim2.new(0, 10, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(15, 0, 25)
+Frame.BackgroundTransparency = 0.05
+Frame.BorderSizePixel = 0
+Frame.Parent = ScreenGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 8)
+Corner.Parent = Frame
+
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 0, 180)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 0, 60))
+})
+Gradient.Rotation = 45
+Gradient.Parent = Frame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 1, 0)
+Title.Text = "🔄 Loop Teleporter\n🟢 Active | P1 → P2 (7s) | Rejoin 10m"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 11
+Title.Font = Enum.Font.GothamBold
+Title.BackgroundTransparency = 1
+Title.Parent = Frame
+
+print("🔄 Auto Loop Teleporter + Rejoin Loaded!")
+print("📍 Point 1: " .. tostring(POINT_1))
+print("📍 Point 2: " .. tostring(POINT_2))
+print("⏱️ 7 second delay between loops")
+print("🔄 Rejoining every 10 minutes")
