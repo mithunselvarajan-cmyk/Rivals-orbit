@@ -1,0 +1,171 @@
+-- Cosmic Hub (6‑Point Loop + 5m Rejoin - Simple) -- delays increased
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+
+local POINT_1 = Vector3.new(122.9, 1.8, -96.8)
+local POINT_2 = Vector3.new(125.2, 1.3, -2190.3)
+local POINT_3 = Vector3.new(170.9, 1.8, 89.6)
+local POINT_4 = Vector3.new(170.4, 7.3, 413.0)
+local POINT_5 = Vector3.new(162.7, 1.8, -104.4)
+local POINT_6 = Vector3.new(164.0, 576.3, -141.3)
+
+local DELAY_1_2 = 0.2
+local DELAY_2_3 = 2.0   -- increased to 2s
+local DELAY_3_4 = 0.2
+local DELAY_4_5 = 2.0   -- increased to 2s
+local DELAY_5_6 = 0.2
+local LOOP_WAIT = 5
+local REJOIN_TIME = 300
+
+local character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local hrp = character:FindFirstChild("HumanoidRootPart")
+local humanoid = character:FindFirstChild("Humanoid")
+
+local loopRunning = true
+local timeLeft = 0
+local rejoinTimeLeft = REJOIN_TIME
+
+local function teleportTo(pos)
+    if not hrp or not hrp.Parent then
+        character = LocalPlayer.Character
+        if character then
+            hrp = character:FindFirstChild("HumanoidRootPart")
+            humanoid = character:FindFirstChild("Humanoid")
+        end
+        return
+    end
+    hrp.CFrame = CFrame.new(pos)
+    hrp.Velocity = Vector3.new(0, 0, 0)
+    hrp.RotVelocity = Vector3.new(0, 0, 0)
+    if humanoid then
+        humanoid.PlatformStand = true
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+        task.wait(0.05)
+        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    end
+end
+
+-- Teleport loop
+spawn(function()
+    while loopRunning do
+        teleportTo(POINT_1)
+        wait(DELAY_1_2)
+        teleportTo(POINT_2)
+        wait(DELAY_2_3)
+        teleportTo(POINT_3)
+        wait(DELAY_3_4)
+        teleportTo(POINT_4)
+        wait(DELAY_4_5)
+        teleportTo(POINT_5)
+        wait(DELAY_5_6)
+        teleportTo(POINT_6)
+
+        timeLeft = LOOP_WAIT
+        local start = tick()
+        while tick() - start < LOOP_WAIT and loopRunning do
+            wait(0.1)
+            timeLeft = math.floor(LOOP_WAIT - (tick() - start))
+        end
+        timeLeft = 0
+    end
+end)
+
+-- Rejoin system
+local PlaceId = game.PlaceId
+spawn(function()
+    while loopRunning do
+        rejoinTimeLeft = REJOIN_TIME
+        while rejoinTimeLeft > 0 do
+            wait(1)
+            rejoinTimeLeft = rejoinTimeLeft - 1
+            local mins = math.floor(rejoinTimeLeft / 60)
+            local secs = rejoinTimeLeft % 60
+            if RejoinLabel then
+                RejoinLabel.Text = "Rejoin: " .. mins .. "m " .. secs .. "s"
+            end
+        end
+        print("Rejoining after 5 minutes...")
+        TeleportService:Teleport(PlaceId)
+    end
+end)
+
+-- Respawn handle
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+    task.wait(0.3)
+    character = newChar
+    hrp = newChar:FindFirstChild("HumanoidRootPart")
+    humanoid = newChar:FindFirstChild("Humanoid")
+end)
+
+-- Simple GUI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CosmicHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+local Frame = Instance.new("Frame")
+Frame.Size = UDim2.new(0, 200, 0, 80)
+Frame.Position = UDim2.new(0, 10, 0, 10)
+Frame.BackgroundColor3 = Color3.fromRGB(12, 0, 24)
+Frame.BackgroundTransparency = 0.1
+Frame.BorderSizePixel = 2
+Frame.BorderColor3 = Color3.fromRGB(140, 0, 255)
+Frame.Parent = ScreenGui
+
+local Corner = Instance.new("UICorner")
+Corner.CornerRadius = UDim.new(0, 8)
+Corner.Parent = Frame
+
+local Gradient = Instance.new("UIGradient")
+Gradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 0, 180)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 0, 60))
+})
+Gradient.Rotation = 45
+Gradient.Parent = Frame
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Size = UDim2.new(1, 0, 0, 25)
+StatusLabel.Position = UDim2.new(0, 0, 0, 0)
+StatusLabel.Text = "Cosmic Hub"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextSize = 15
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Parent = Frame
+
+local TimerLabel = Instance.new("TextLabel")
+TimerLabel.Size = UDim2.new(1, -10, 0, 20)
+TimerLabel.Position = UDim2.new(0, 5, 0, 28)
+TimerLabel.Text = "Cooldown: 0s"
+TimerLabel.TextColor3 = Color3.fromRGB(200, 180, 255)
+TimerLabel.TextSize = 12
+TimerLabel.Font = Enum.Font.Gotham
+TimerLabel.TextXAlignment = Enum.TextXAlignment.Left
+TimerLabel.BackgroundTransparency = 1
+TimerLabel.Parent = Frame
+
+local RejoinLabel = Instance.new("TextLabel")
+RejoinLabel.Size = UDim2.new(1, -10, 0, 20)
+RejoinLabel.Position = UDim2.new(0, 5, 0, 50)
+RejoinLabel.Text = "Rejoin: 5m 0s"
+RejoinLabel.TextColor3 = Color3.fromRGB(160, 140, 200)
+RejoinLabel.TextSize = 11
+RejoinLabel.Font = Enum.Font.Gotham
+RejoinLabel.TextXAlignment = Enum.TextXAlignment.Left
+RejoinLabel.BackgroundTransparency = 1
+RejoinLabel.Parent = Frame
+
+-- Update timer
+spawn(function()
+    while true do
+        wait(0.1)
+        TimerLabel.Text = (timeLeft > 0) and "Cooldown: " .. timeLeft .. "s" or "Cooldown: 0s"
+    end
+end)
+
+print("Cosmic Hub - Teleport Loop Active (delays updated)")
+print("P1 → (0.2s) → P2 → (2s) → P3 → (0.2s) → P4 → (2s) → P5 → (0.2s) → P6 → (5s cooldown)")
+print("Rejoin every 5 minutes")
